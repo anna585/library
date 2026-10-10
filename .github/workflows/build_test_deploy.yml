@@ -42,7 +42,7 @@ jobs:
       run: node node_modules/playwright/cli.js install chromium
     
     - name: Run tests
-      run: npm test
+      run: node node_modules/@playwright/test/cli.js test
 
   deploy-be:
     needs: build_test
