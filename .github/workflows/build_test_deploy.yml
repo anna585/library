@@ -25,7 +25,7 @@ jobs:
       run: |
         echo "export const settings = { host: 'http://localhost:3030' }" > src/config.js
     - name: Start Backend
-      run: npm run start-be &
+      run: npm run service-be &
     - name: Wait for backend to be ready
       run: sleep 3
     - name: Start FrontEnd
@@ -39,7 +39,7 @@ jobs:
 
   deploy_backend_to_render:
     needs: build_test
-    if : github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
     - uses: JorgeLNJunior/render-deploy@v1.5.0
@@ -50,7 +50,7 @@ jobs:
 
   deploy_frontend_to_render:
     needs: deploy_backend_to_render
-    if : github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
     - uses: JorgeLNJunior/render-deploy@v1.5.0
