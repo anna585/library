@@ -1,35 +1,43 @@
+
 name: Build test and deploy Library
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build_test:
-
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout the repository
-      uses: actions/checkout@v4
-    - name: Use Node.js 24
-      uses: actions/setup-node@v4
-      with:
-        node-version: 24
-        cache: 'npm'
-    - name: Install NPM dependencies
-      run: npm install
-    - name: Start Backend
-      run: npm run server-be &
-    - name: Wait for backend to be ready
-      run: sleep 3
-    - name: Start Frontend
-      run: npm run start-fe &
-    - name: Wait for frontend to be ready
-      run: sleep 3
-    - name: Install the Playwright Browsers
-      run: npx playwright install
-    - name: Run the UI tests
-      run: npm run test
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install NPM dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx --no-install playwright install --with-deps
+
+      - name: Start Backend
+        run: npm run server-be &
+
+      - name: Wait for backend to be ready
+        run: sleep 3
+
+      - name: Start Frontend
+        run: npm run start-fe &
+
+      - name: Wait for frontend to be ready
+        run: sleep 3
+
+      - name: Run the UI tests
+        run: npm run test
