@@ -1,10 +1,11 @@
-name: Build test and deploy Library
+name: Build Test and Deploy
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build_test:
@@ -14,51 +15,50 @@ jobs:
     steps:
     - name: Checkout the repository
       uses: actions/checkout@v4
+
     - name: Use Node.js 24
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: 24
-        cache: 'npm'
-    - name: Install NPM dependencies
-      run: npm ci
-    - name: Replace config.js with production settings
-      run: |
-        echo "export const settings = { host: 'http://localhost:3030' }" > src/config.js
-    - name: Start Backend
-      run: npm run server-be &
-    - name: Wait for backend to be ready
-      run: sleep 3
-    - name: Start FrontEnd
+
+    - name: Install npm dependencies
+      run: npm install
+
+    - name: Manualy change the config file
+      run: echo "export const settings = { host:'http://localhost:3030' };" > src/config.js
+      
+    - name: Start BE
+      run: npm run servis-be &
+
+    - name: Start FE
       run: npm run start-fe &
-    - name: Wait for frontend to be ready
-      run: sleep 3
-    - name: Install system dependencies
-      run: | 
-       sudo apt-get update
-       sudo apt-get install -y libasound2t64
-    - name: Install Playwright Chromium
-      run: npm exec -- playwright install chromium
-    - name: Run the UI Tests
-      run: npm run test
 
-  deploy_backend_to_render:
+    - name: Install Playwright Browsers
+      run: npx playwright install
+    
+    - name: Run tests
+      run: npm test
+
+  deploy-be:
     needs: build_test
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     steps:
-    - uses: JorgeLNJunior/render-deploy@v1.5.0
-      with:
-        service_id: ${{ secrets.SERVICE_BE_ID }}
-        api_key: ${{ secrets.MY_RENDER_API_KEY }}
-        wait_deploy: true
+      - name: Deploy to production
+        uses: JorgeLNJunior/render-deploy@v1.5.0
+        with:
+          service_id: ${{ secrets.SERVICE_BE_ID }}
+          api_key: ${{ secrets.RENDER_TOKEN }}
+          wait_deploy: true
 
-  deploy_frontend_to_render:
-    needs: deploy_backend_to_render
-    if: github.ref == 'refs/heads/main'
+  deploy-fe:
+    needs: deploy-be
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     steps:
-    - uses: JorgeLNJunior/render-deploy@v1.5.0
-      with:
-        service_id: ${{ secrets.SERVICE_FE_ID }}
-        api_key: ${{ secrets.MY_RENDER_API_KEY }}
-        wait_deploy: true
+      - name: Deploy to production
+        uses: JorgeLNJunior/render-deploy@v1.5.0
+        with:
+          service_id: ${{ secrets.SERVICE_FE_ID }}
+          api_key: ${{ secrets.RENDER_TOKEN }}
+          wait_deploy: true
