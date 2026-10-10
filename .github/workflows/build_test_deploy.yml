@@ -28,7 +28,7 @@ jobs:
       run: echo "export const settings = { host:'http://localhost:3030' };" > src/config.js
       
     - name: Start BE
-      run: npm run servis-be &
+      run: npm run server-be &
 
     - name: Wait for be
       run: sleep 3    
