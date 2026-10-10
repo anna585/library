@@ -1,105 +1,60 @@
-name: Build Test and Deploy
+name: Build test and deploy Library
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   pull_request:
-    branches: ["main"]
-  workflow_dispatch:
+    branches: [ "main" ]
 
 jobs:
   build_test:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 15
+
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout the repository
-        uses: actions/checkout@v4
+    - name: Checkout the repository
+      uses: actions/checkout@v4
+    - name: Use Node.js 24
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: 'npm'
+    - name: Install NPM dependencies
+      run: npm install
+    - name: Replace config.js with production settings
+      run: |
+        echo "export const settings = { host: 'http://localhost:3030' }" > src/config.js
+    - name: Start Backend
+      run: npm run server-be &
+    - name: Wait for backend to be ready
+      run: sleep 3
+    - name: Start FrontEnd
+      run: npm run start-fe &
+    - name: Wait for frontend to be ready
+      run: sleep 3
+    - name: Install the Playwright Browsers
+      run: npx playwright install
+    - name: Run the UI Tests
+      run: npm run test
 
-      - name: Use Node.js 24
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Install npm dependencies
-        run: npm install
-
-      - name: Configure backend URL for tests
-        run: |
-          printf "export const settings = { host: 'http://localhost:3030' };\n" > src/config.js
-
-      - name: Install Playwright Chromium and dependencies
-        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
-
-      - name: Start backend
-        run: |
-          npm run server-be > backend.log 2>&1 &
-          echo $! > backend.pid
-
-      - name: Wait for backend
-        run: |
-          for i in {1..30}; do
-            if curl -sS http://127.0.0.1:3030/ -o /dev/null; then
-              echo "Backend is responding"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Backend failed to start"
-          cat backend.log
-          exit 1
-
-      - name: Start frontend
-        run: |
-          npm run start-fe > frontend.log 2>&1 &
-          echo $! > frontend.pid
-
-      - name: Wait for frontend
-        run: |
-          for i in {1..30}; do
-            if curl -fsS http://localhost:3000/ -o /dev/null; then
-              echo "Frontend is ready"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Frontend failed to start"
-          cat frontend.log
-          exit 1
-
-      - name: Run Playwright tests
-        run: node node_modules/@playwright/test/cli.js test
-
-      - name: Show server logs on failure
-        if: failure()
-        run: |
-          echo "========== Backend logs =========="
-          cat backend.log || true
-          echo "========== Frontend logs =========="
-          cat frontend.log || true
-
-  deploy-be:
+  deploy_backend_to_render:
     needs: build_test
+    if : github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-
     steps:
-      - name: Deploy backend to Render
-        uses: JorgeLNJunior/render-deploy@v1.5.0
-        with:
-          service_id: ${{ secrets.SERVICE_BE_ID }}
-          api_key: ${{ secrets.RENDER_TOKEN }}
-          wait_deploy: true
+    - uses: JorgeLNJunior/render-deploy@v1.5.0
+      with:
+        service_id: ${{ secrets.SERVICE_BE_ID }}
+        api_key: ${{ secrets.MY_RENDER_API_KEY }}
+        wait_deploy: true
 
-  deploy-fe:
-    needs: deploy-be
+  deploy_frontend_to_render:
+    needs: deploy_backend_to_render
+    if : github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-
     steps:
-      - name: Deploy frontend to Render
-        uses: JorgeLNJunior/render-deploy@v1.5.0
-        with:
-          service_id: ${{ secrets.SERVICE_FE_ID }}
-          api_key: ${{ secrets.RENDER_TOKEN }}
-          wait_deploy: true
+    - uses: JorgeLNJunior/render-deploy@v1.5.0
+      with:
+        service_id: ${{ secrets.SERVICE_FE_ID }}
+        api_key: ${{ secrets.MY_RENDER_API_KEY }}
+        wait_deploy: true
