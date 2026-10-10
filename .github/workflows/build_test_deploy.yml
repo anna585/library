@@ -2,60 +2,89 @@ name: Build Test and Deploy
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
   build_test:
-
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
 
     steps:
-    - name: Checkout the repository
-      uses: actions/checkout@v4
+      - name: Checkout the repository
+        uses: actions/checkout@v4
 
-    - name: Use Node.js 24
-      uses: actions/setup-node@v6
-      with:
-        node-version: 24
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
 
-    - name: Install npm dependencies
-      run: npm install
+      - name: Install npm dependencies
+        run: npm install
 
-    - name: Manualy change the config file
-      run: echo "export const settings = { host:'http://localhost:3030' };" > src/config.js
-      
-    - name: Start BE
-      run: npm run server-be &
+      - name: Configure backend URL for tests
+        run: |
+          printf "export const settings = { host: 'http://localhost:3030' };\n" > src/config.js
 
-    - name: Wait for be
-      run: sleep 3    
+      - name: Install Playwright Chromium and dependencies
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
 
-    - name: Start FE
-      run: npm run start-fe &
+      - name: Start backend
+        run: |
+          npm run server-be > backend.log 2>&1 &
+          echo $! > backend.pid
 
-    - name: Wait for fe
-      run: sleep 3 
+      - name: Wait for backend
+        run: |
+          for i in {1..30}; do
+            if curl -sS http://127.0.0.1:3030/ -o /dev/null; then
+              echo "Backend is responding"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend failed to start"
+          cat backend.log
+          exit 1
 
-    - name: Install system dependencies
-      run: |
-       sudo apt-get update
-       sudo apt-get install -y libasound2t64
+      - name: Start frontend
+        run: |
+          npm run start-fe > frontend.log 2>&1 &
+          echo $! > frontend.pid
 
-    - name: Install Playwright Chromium
-      run: node node_modules/playwright/cli.js install chromium
-    
-    - name: Run tests
-      run: node node_modules/@playwright/test/cli.js test
+      - name: Wait for frontend
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:3000/ -o /dev/null; then
+              echo "Frontend is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Frontend failed to start"
+          cat frontend.log
+          exit 1
+
+      - name: Run Playwright tests
+        run: node node_modules/@playwright/test/cli.js test
+
+      - name: Show server logs on failure
+        if: failure()
+        run: |
+          echo "========== Backend logs =========="
+          cat backend.log || true
+          echo "========== Frontend logs =========="
+          cat frontend.log || true
 
   deploy-be:
     needs: build_test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+
     steps:
-      - name: Deploy to production
+      - name: Deploy backend to Render
         uses: JorgeLNJunior/render-deploy@v1.5.0
         with:
           service_id: ${{ secrets.SERVICE_BE_ID }}
@@ -65,9 +94,10 @@ jobs:
   deploy-fe:
     needs: deploy-be
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+
     steps:
-      - name: Deploy to production
+      - name: Deploy frontend to Render
         uses: JorgeLNJunior/render-deploy@v1.5.0
         with:
           service_id: ${{ secrets.SERVICE_FE_ID }}
