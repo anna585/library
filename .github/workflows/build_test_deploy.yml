@@ -33,8 +33,13 @@ jobs:
     - name: Start FE
       run: npm run start-fe &
 
-    - name: Install Playwright Browsers
-      run: npx playwright install
+    - name: Install system dependencies
+      run: |
+       sudo apt-get update
+       sudo apt-get install -y libasound2t64
+
+    - name: Install Playwright Chromium
+      run: npm exec -- playwright install chromium
     
     - name: Run tests
       run: npm test
