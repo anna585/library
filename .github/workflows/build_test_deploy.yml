@@ -32,8 +32,12 @@ jobs:
       run: npm run start-fe &
     - name: Wait for frontend to be ready
       run: sleep 3
-    - name: Install the Playwright Browsers
-      run: npm exec -- playwright install --with-deps chromium
+    - name: Install system dependencies
+      run: | 
+       sudo apt-get update
+       sudo apt-get install -y libasound2t64
+    - name: Install Playwright Chromium
+      run: npm exec -- playwright install chromium
     - name: Run the UI Tests
       run: npm run test
 
