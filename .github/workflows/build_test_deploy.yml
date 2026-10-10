@@ -20,7 +20,7 @@ jobs:
         node-version: 24
         cache: 'npm'
     - name: Install NPM dependencies
-      run: npm install
+      run: npm ci
     - name: Replace config.js with production settings
       run: |
         echo "export const settings = { host: 'http://localhost:3030' }" > src/config.js
@@ -33,7 +33,7 @@ jobs:
     - name: Wait for frontend to be ready
       run: sleep 3
     - name: Install the Playwright Browsers
-      run: npx playwright install
+      run: npm exec -- playwright install --with-deps chromium
     - name: Run the UI Tests
       run: npm run test
 
