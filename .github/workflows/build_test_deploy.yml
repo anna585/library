@@ -30,8 +30,14 @@ jobs:
     - name: Start BE
       run: npm run servis-be &
 
+    - name: Wait for be
+      run: sleep 3    
+
     - name: Start FE
       run: npm run start-fe &
+
+    - name: Wait for fe
+      run: sleep 3 
 
     - name: Install system dependencies
       run: |
